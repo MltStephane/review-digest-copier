@@ -1,0 +1,85 @@
+:root {
+  color-scheme: light dark;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  padding: 12px;
+  background: Canvas;
+  color: CanvasText;
+}
+
+main {
+  display: grid;
+  gap: 10px;
+}
+
+h1 {
+  margin: 0;
+  font-size: 16px;
+}
+
+p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+label {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 180px;
+  margin: 0;
+  padding: 10px;
+  border: 1px solid CanvasText;
+  border-radius: 8px;
+  background: Canvas;
+  color: CanvasText;
+  font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  resize: vertical;
+}
+
+textarea[aria-busy="true"] {
+  opacity: 0.85;
+}
+
+textarea[data-state="error"] {
+  border-color: #d1242f;
+}
+
+.actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+button {
+  appearance: none;
+  border: 0;
+  border-radius: 8px;
+  background: #0969da;
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  padding: 10px 12px;
+  cursor: pointer;
+  width: 100%;
+}
+
+button:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+#status {
+  font-size: 12px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+}

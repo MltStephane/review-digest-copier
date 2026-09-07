@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Review Digest Copier</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main>
+      <h1>Review Digest Copier</h1>
+      <p>Copy the current PR or MR review digest to the clipboard.</p>
+      <label for="preview">Digest preview</label>
+      <textarea id="preview" readonly aria-busy="true">Loading digest preview…</textarea>
+      <div class="actions" aria-label="Copy actions">
+        <button id="copyButton" type="button">Copy digest</button>
+        <button id="copyRawButton" type="button">Copy raw feedback</button>
+      </div>
+      <div id="status" role="status" aria-live="polite">Ready.</div>
+    </main>
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>

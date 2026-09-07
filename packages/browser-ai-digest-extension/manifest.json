@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "Review Digest Copier",
+  "version": "0.1.0",
+  "description": "Copy GitHub PR or GitLab MR review digests into the clipboard.",
+  "action": {
+    "default_title": "Copy Review Digest",
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://gitlab.com/*/-/merge_requests/*"],
+      "js": ["src/gitlab-mr-button.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "permissions": ["activeTab", "clipboardWrite", "scripting"]
+}
