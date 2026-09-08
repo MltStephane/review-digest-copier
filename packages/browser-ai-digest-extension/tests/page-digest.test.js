@@ -82,6 +82,67 @@ test('collects self-hosted GitLab feedback with file and diff context when avail
   restore();
 });
 
+test('collectPageDigest works when serialized for chrome.scripting.executeScript', () => {
+  const title = createMockElement({
+    text: 'Review digest injection regression',
+    selectors: ['[data-testid="merge-request-title"]', '.detail-page-header h1', '.merge-request-title', '.js-merge-request-title'],
+  });
+
+  const fileTitle = createMockElement({
+    text: 'packages/browser-ai-digest-extension/src/'.padEnd(260, 'a') + '.js',
+    selectors: ['[data-testid="file-name"]', '[data-testid="file-path"]', '[data-file-path]', '[data-file-name]', '.file-title-name', '.file-title-name a', '.file-header .file-title-name', '.file-header-content .file-title-name', '.diff-file-name', '.file-header-title', '.file-title', '.file-path', '.js-file-title-name', 'a[href*="/blob/"]', 'a[href*="/tree/"]'],
+  });
+
+  const diffBlock = createMockElement({
+    text: Array.from({ length: 120 }, (_, index) => `+line ${index + 1} with injected digest context`).join('\n'),
+    selectors: ['[data-testid="diff-content"]', '.diff-content', '.diff-lines', '.file-content', '.blob-viewer', '.line_content', '.diff-line-content', '.code', '.file-body', '.file-holder', '.diff-blob', 'pre', 'code'],
+  });
+
+  const noteBody = createMockElement({
+    text: 'Please keep the injected function self-contained.',
+    selectors: ['[data-testid="note-content"]', '.note-body', '.note-text', '.discussion-note .note-text', '.timeline-entry .note-text', '.js-note-body'],
+  });
+
+  const noteWrapper = createMockElement({
+    selectors: ['.discussion-note'],
+    children: [noteBody],
+  });
+
+  const fileWrapper = createMockElement({
+    children: [title, fileTitle, diffBlock, noteWrapper],
+  });
+
+  noteWrapper.parentElement = fileWrapper;
+  noteBody.parentElement = noteWrapper;
+  title.parentElement = fileWrapper;
+  fileTitle.parentElement = fileWrapper;
+  diffBlock.parentElement = fileWrapper;
+
+  const restore = mockGlobals({
+    document: {
+      title: 'Review digest injection regression · !8',
+      querySelector(selector) {
+        return [title].find((element) => element.matches(selector)) ?? null;
+      },
+      querySelectorAll(selector) {
+        return [noteBody].filter((element) => element.matches(selector));
+      },
+    },
+    location: { href: 'https://gitlab-iliad.mgt.proxad.net/group/project/-/merge_requests/8', hostname: 'gitlab-iliad.mgt.proxad.net' },
+  });
+
+  const injectedCollectPageDigest = new Function(`return (${collectPageDigest.toString()});`)();
+  const digest = injectedCollectPageDigest();
+
+  assert.equal(digest.source, 'GitLab MR · group/project!8');
+  assert.equal(digest.feedbackItems[0].file.endsWith('…'), true);
+  assert.equal(digest.feedbackItems[0].diff.endsWith('…'), true);
+  assert.match(digest.feedbackItems[0].file, /^packages\/browser-ai-digest-extension\/src\//);
+  assert.match(digest.feedbackItems[0].diff, /^\+line 1 with injected digest context/);
+
+  restore();
+});
+
 function mockGlobals(next) {
   const previous = {
     document: globalThis.document,

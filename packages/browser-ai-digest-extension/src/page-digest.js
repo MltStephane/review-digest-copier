@@ -115,6 +115,27 @@ export function collectPageDigest() {
       .trim();
   }
 
+  function truncateText(value, maxLength) {
+    if (value.length <= maxLength) {
+      return value;
+    }
+
+    return `${value.slice(0, Math.max(0, maxLength - 1)).trimEnd()}…`;
+  }
+
+  function truncateBlockText(value, maxLength) {
+    const normalized = String(value ?? '')
+      .replace(/\r\n?/g, '\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+
+    if (normalized.length <= maxLength) {
+      return normalized;
+    }
+
+    return `${normalized.slice(0, Math.max(0, maxLength - 1)).trimEnd()}…`;
+  }
+
   function isVisible(element) {
     const style = window.getComputedStyle(element);
 
@@ -378,25 +399,4 @@ export function collectPageDigest() {
     rawFeedback,
     rawFeedbackReason,
   };
-}
-
-function truncateText(value, maxLength) {
-  if (value.length <= maxLength) {
-    return value;
-  }
-
-  return `${value.slice(0, Math.max(0, maxLength - 1)).trimEnd()}…`;
-}
-
-function truncateBlockText(value, maxLength) {
-  const normalized = String(value ?? '')
-    .replace(/\r\n?/g, '\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
-
-  if (normalized.length <= maxLength) {
-    return normalized;
-  }
-
-  return `${normalized.slice(0, Math.max(0, maxLength - 1)).trimEnd()}…`;
 }
