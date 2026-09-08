@@ -14,6 +14,12 @@
       "run_at": "document_idle"
     }
   ],
+  "web_accessible_resources": [
+    {
+      "resources": ["src/page-digest.js", "src/format-digest.js"],
+      "matches": ["https://*/*/-/merge_requests/*", "http://*/*/-/merge_requests/*"]
+    }
+  ],
   "permissions": ["activeTab", "clipboardWrite", "scripting"],
   "host_permissions": ["https://*/*", "http://*/*"]
 }

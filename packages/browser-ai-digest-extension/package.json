@@ -5,7 +5,7 @@
   "version": "0.1.0",
   "description": "Unpacked Chrome/Brave extension that copies GitHub PR and GitLab MR review digests to the clipboard.",
   "scripts": {
-    "test": "node --test tests/formatter.test.js tests/page-digest.test.js",
-    "lint": "node --check popup.js && node --check src/format-digest.js && node --check src/page-digest.js && node --check src/gitlab-mr-button.js && node --check tests/formatter.test.js && node --check tests/page-digest.test.js"
+    "test": "node --test tests/*.test.js",
+    "lint": "node --check popup.js && node --check src/format-digest.js && node --check src/page-digest.js && node --check src/gitlab-mr-button.js && node --check tests/formatter.test.js && node --check tests/page-digest.test.js && node --check tests/manifest.test.js"
   }
 }
