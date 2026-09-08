@@ -17,7 +17,7 @@ Minimal unpacked Manifest V3 extension for Chrome/Brave that copies a GitHub PR 
 4. Otherwise, click the extension icon.
 5. Press **Copy digest**.
 
-The extension prefers selected text. If nothing is selected, it scrapes visible review/comment text from the current page and formats it as an AI-friendly digest.
+The extension prefers selected text. If nothing is selected, it scrapes visible review/comment text from the current page and, on GitLab MR pages, adds the related file and diff context when it can find them.
 
 ## Scripts
 

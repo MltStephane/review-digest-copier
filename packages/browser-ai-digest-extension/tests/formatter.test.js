@@ -8,7 +8,16 @@ test('formats a digest with structured sections', () => {
     source: 'GitHub PR · openchamber/openchamber#123',
     url: 'https://github.com/openchamber/openchamber/pull/123',
     title: 'Fix clipboard copy flow',
-    feedback: ['Please split this into two changes.', 'Looks good to me.'],
+    feedbackItems: [
+      {
+        comment: 'Please split this into two changes.',
+        file: 'packages/browser-ai-digest-extension/src/format-digest.js',
+        diff: '@@ -1,2 +1,2 @@\n-old\n+new',
+      },
+      {
+        comment: 'Looks good to me.',
+      },
+    ],
   });
 
   assert.equal(
@@ -21,7 +30,12 @@ test('formats a digest with structured sections', () => {
       'Title: Fix clipboard copy flow',
       '',
       'Feedback:',
-      '- Please split this into two changes.',
+      '- Comment: Please split this into two changes.',
+      '  File: packages/browser-ai-digest-extension/src/format-digest.js',
+      '  Diff:',
+      '    @@ -1,2 +1,2 @@',
+      '    -old',
+      '    +new',
       '- Looks good to me.',
     ].join('\n'),
   );

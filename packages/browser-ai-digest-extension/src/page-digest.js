@@ -138,6 +138,108 @@ export function collectPageDigest() {
     return feedback;
   }
 
+  function collectFeedbackItems(provider) {
+    if (provider !== 'gitlab') {
+      return [];
+    }
+
+    const selectors = [
+      '[data-testid="note-content"]',
+      '.note-body',
+      '.note-text',
+      '.discussion-note .note-text',
+      '.timeline-entry .note-text',
+      '.js-note-body',
+    ];
+
+    const items = [];
+    const seen = new Set();
+
+    for (const selector of selectors) {
+      for (const element of document.querySelectorAll(selector)) {
+        const comment = normalizeText(getRawVisibleText(element));
+
+        if (!comment) {
+          continue;
+        }
+
+        const context = collectGitLabContext(element);
+        const dedupeKey = [comment, context.file, context.diff].join('\u0000');
+
+        if (seen.has(dedupeKey)) {
+          continue;
+        }
+
+        seen.add(dedupeKey);
+        items.push({
+          comment,
+          file: context.file,
+          diff: context.diff,
+        });
+
+        if (items.length >= 8) {
+          return items;
+        }
+      }
+    }
+
+    return items;
+  }
+
+  function collectGitLabContext(element) {
+    const root = element.closest('article, li, section, .note, .discussion-note, .timeline-entry') ?? element.parentElement ?? element;
+
+    const file = findVisibleTextInAncestors(root, [
+      '[data-testid="file-name"]',
+      '[data-testid="file-path"]',
+      '.file-title-name',
+      '.file-title-name a',
+      '.file-header .file-title-name',
+      '.diff-file-name',
+      '.file-header-title',
+      '.file-title',
+      'a[href*="/blob/"]',
+    ]);
+
+    const diff = findVisibleTextInAncestors(root, [
+      '[data-testid="diff-content"]',
+      '.diff-content',
+      '.file-content',
+      '.blob-viewer',
+      '.line_content',
+      '.diff-line-content',
+      '.code',
+      'pre',
+      'code',
+    ], 2);
+
+    return {
+      file: file ? truncateText(file, 200) : '',
+      diff: diff ? truncateBlockText(diff, 900) : '',
+    };
+  }
+
+  function findVisibleTextInAncestors(element, selectors, maxDepth = 4) {
+    let current = element;
+    let depth = 0;
+
+    while (current && depth <= maxDepth) {
+      for (const selector of selectors) {
+        const match = current.querySelector(selector);
+        const text = normalizeText(getRawVisibleText(match));
+
+        if (text) {
+          return text;
+        }
+      }
+
+      current = current.parentElement;
+      depth += 1;
+    }
+
+    return '';
+  }
+
   function getRawVisibleText(element) {
     if (!element || !isVisible(element)) {
       return '';
@@ -151,6 +253,7 @@ export function collectPageDigest() {
   const selection = getSelectionText();
   const pageSource = getSourceLabel(provider, location.href);
   const rawFeedback = selection ? [selection] : collectFeedback(provider);
+  const feedbackItems = selection ? [] : collectFeedbackItems(provider);
   const rawFeedbackReason = rawFeedback.length > 0
     ? ''
     : (selection
@@ -166,7 +269,29 @@ export function collectPageDigest() {
     url: location.href,
     title,
     feedback: rawFeedback,
+    feedbackItems,
     rawFeedback,
     rawFeedbackReason,
   };
+}
+
+function truncateText(value, maxLength) {
+  if (value.length <= maxLength) {
+    return value;
+  }
+
+  return `${value.slice(0, Math.max(0, maxLength - 1)).trimEnd()}…`;
+}
+
+function truncateBlockText(value, maxLength) {
+  const normalized = String(value ?? '')
+    .replace(/\r\n?/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+
+  if (normalized.length <= maxLength) {
+    return normalized;
+  }
+
+  return `${normalized.slice(0, Math.max(0, maxLength - 1)).trimEnd()}…`;
 }
