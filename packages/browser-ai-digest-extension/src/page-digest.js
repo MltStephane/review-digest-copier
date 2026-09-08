@@ -1,8 +1,28 @@
 export function isGitLabMergeRequestPage(url = location.href) {
   const parsedUrl = new URL(url);
 
-  return parsedUrl.hostname === 'gitlab.com'
-    && /^\/.+\/-\/merge_requests\/\d+/.test(parsedUrl.pathname.replace(/\/+$/, ''));
+  if (!/^\/.+\/-\/merge_requests\/\d+/.test(parsedUrl.pathname.replace(/\/+$/, ''))) {
+    return false;
+  }
+
+  if (parsedUrl.hostname === 'gitlab.com') {
+    return true;
+  }
+
+  return hasGitLabMergeRequestSignals();
+}
+
+function hasGitLabMergeRequestSignals() {
+  if (typeof document === 'undefined') {
+    return false;
+  }
+
+  return Boolean(document.querySelector([
+    '[data-testid="merge-request-title"]',
+    '.detail-page-header h1',
+    '.merge-request-title',
+    '.js-merge-request-title',
+  ].join(',')));
 }
 
 export function collectPageDigest() {
@@ -11,7 +31,7 @@ export function collectPageDigest() {
       return 'github';
     }
 
-    if (url.includes('gitlab.com')) {
+    if (isGitLabMergeRequestPage(url)) {
       return 'gitlab';
     }
 
@@ -187,31 +207,43 @@ export function collectPageDigest() {
   }
 
   function collectGitLabContext(element) {
-    const root = element.closest('article, li, section, .note, .discussion-note, .timeline-entry') ?? element.parentElement ?? element;
+    const root = element.closest(
+      'article, li, section, .note, .discussion-note, .timeline-entry, .discussion, .diff-discussion, .note-wrapper, .note-holder',
+    ) ?? element.parentElement ?? element;
 
     const file = findVisibleTextInAncestors(root, [
       '[data-testid="file-name"]',
       '[data-testid="file-path"]',
+      '[data-file-path]',
+      '[data-file-name]',
       '.file-title-name',
       '.file-title-name a',
       '.file-header .file-title-name',
+      '.file-header-content .file-title-name',
       '.diff-file-name',
       '.file-header-title',
       '.file-title',
+      '.file-path',
+      '.js-file-title-name',
       'a[href*="/blob/"]',
+      'a[href*="/tree/"]',
     ]);
 
-    const diff = findVisibleTextInAncestors(root, [
+    const diff = findVisibleBlockTextInAncestors(root, [
       '[data-testid="diff-content"]',
       '.diff-content',
+      '.diff-lines',
       '.file-content',
       '.blob-viewer',
       '.line_content',
       '.diff-line-content',
       '.code',
+      '.file-body',
+      '.file-holder',
+      '.diff-blob',
       'pre',
       'code',
-    ], 2);
+    ], 4);
 
     return {
       file: file ? truncateText(file, 200) : '',
@@ -225,8 +257,36 @@ export function collectPageDigest() {
 
     while (current && depth <= maxDepth) {
       for (const selector of selectors) {
-        const match = current.querySelector(selector);
+        const match = typeof current.matches === 'function' && current.matches(selector)
+          ? current
+          : current.querySelector(selector);
         const text = normalizeText(getRawVisibleText(match));
+
+        if (text) {
+          return text;
+        }
+      }
+
+      current = current.parentElement;
+      depth += 1;
+    }
+
+    return '';
+  }
+
+  function findVisibleBlockTextInAncestors(element, selectors, maxDepth = 4) {
+    let current = element;
+    let depth = 0;
+
+    while (current && depth <= maxDepth) {
+      for (const selector of selectors) {
+        const match = typeof current.matches === 'function' && current.matches(selector)
+          ? current
+          : current.querySelector(selector);
+        const text = String(getRawVisibleText(match) ?? '')
+          .replace(/\r\n?/g, '\n')
+          .replace(/\n{3,}/g, '\n\n')
+          .trim();
 
         if (text) {
           return text;

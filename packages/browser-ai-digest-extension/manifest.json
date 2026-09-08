@@ -9,7 +9,7 @@
   },
   "content_scripts": [
     {
-      "matches": ["https://gitlab.com/*/-/merge_requests/*"],
+      "matches": ["https://*/*/-/merge_requests/*", "http://*/*/-/merge_requests/*"],
       "js": ["src/gitlab-mr-button.js"],
       "run_at": "document_idle"
     }
