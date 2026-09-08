@@ -14,5 +14,6 @@
       "run_at": "document_idle"
     }
   ],
-  "permissions": ["activeTab", "clipboardWrite", "scripting"]
+  "permissions": ["activeTab", "clipboardWrite", "scripting"],
+  "host_permissions": ["https://*/*", "http://*/*"]
 }

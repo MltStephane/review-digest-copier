@@ -76,16 +76,44 @@ async function buildDigest() {
     throw new Error('No active tab found.');
   }
 
-  const [result] = await chrome.scripting.executeScript({
-    target: { tabId: tab.id },
-    func: collectPageDigest,
-  });
+  let injectionResults;
 
-  if (!result?.result) {
+  try {
+    injectionResults = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: collectPageDigest,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error ?? '');
+
+    if (/host permission/i.test(message) || /Cannot access/i.test(message) || /No tab with id/i.test(message)) {
+      throw new Error(
+        'Could not read the current page. The extension has no permission for this host. Check chrome://extensions → Review Digest Copier → Site access, and reload the page.',
+      );
+    }
+
+    throw new Error(message || 'Could not read the current page.');
+  }
+
+  const first = injectionResults?.[0];
+
+  // MV3 returns { result, error } per frame; surface the injected error
+  // instead of the generic "Could not read" when the serialized function
+  // throws (e.g. stale closure over an out-of-scope helper).
+  if (first?.error) {
+    const injectedMessage = first.error.message || String(first.error);
+    throw new Error(injectedMessage || 'Could not read the current page.');
+  }
+
+  if (!first?.result) {
+    if (chrome.runtime.lastError) {
+      throw new Error(chrome.runtime.lastError.message || 'Could not read the current page.');
+    }
+
     throw new Error('Could not read the current page.');
   }
 
-  return result.result;
+  return first.result;
 }
 
 function setStatus(message) {

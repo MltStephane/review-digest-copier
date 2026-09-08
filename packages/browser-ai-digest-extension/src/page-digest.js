@@ -19,19 +19,60 @@ function hasGitLabMergeRequestSignals() {
 
   return Boolean(document.querySelector([
     '[data-testid="merge-request-title"]',
+    '[data-testid="title-content"]',
     '.detail-page-header h1',
+    'h1[data-testid="title-content"]',
     '.merge-request-title',
     '.js-merge-request-title',
   ].join(',')));
 }
 
 export function collectPageDigest() {
+  // Self-contained provider detection: must not close over module scope
+  // because `chrome.scripting.executeScript({ func: collectPageDigest })`
+  // serializes only this function's body. Any external reference
+  // (e.g. isGitLabMergeRequestPage defined outside) becomes a
+  // ReferenceError in the injected isolated world and makes the popup
+  // show “Could not read the current page.”
+  function hasGitLabMergeRequestSignalsInternal() {
+    if (typeof document === 'undefined') {
+      return false;
+    }
+
+    return Boolean(document.querySelector([
+      '[data-testid="merge-request-title"]',
+      '[data-testid="title-content"]',
+      '.detail-page-header h1',
+      'h1[data-testid="title-content"]',
+      '.merge-request-title',
+      '.js-merge-request-title',
+    ].join(',')));
+  }
+
+  function isGitLabMergeRequestPageInternal(url) {
+    try {
+      const parsedUrl = new URL(url);
+
+      if (!/^\/.+\/-\/merge_requests\/\d+/.test(parsedUrl.pathname.replace(/\/+$/, ''))) {
+        return false;
+      }
+
+      if (parsedUrl.hostname === 'gitlab.com') {
+        return true;
+      }
+
+      return hasGitLabMergeRequestSignalsInternal();
+    } catch {
+      return false;
+    }
+  }
+
   function detectProvider(url) {
     if (url.includes('github.com')) {
       return 'github';
     }
 
-    if (isGitLabMergeRequestPage(url)) {
+    if (isGitLabMergeRequestPageInternal(url)) {
       return 'gitlab';
     }
 
@@ -95,7 +136,11 @@ export function collectPageDigest() {
         ]
       : [
           '[data-testid="merge-request-title"]',
+          '[data-testid="title-content"]',
           '.detail-page-header h1',
+          'h1[data-testid="title-content"]',
+          '.merge-request-title',
+          '.js-merge-request-title',
           'h1',
         ];
 
@@ -227,7 +272,7 @@ export function collectPageDigest() {
       '.js-file-title-name',
       'a[href*="/blob/"]',
       'a[href*="/tree/"]',
-    ]);
+    ], 10);
 
     const diff = findVisibleBlockTextInAncestors(root, [
       '[data-testid="diff-content"]',
@@ -243,7 +288,7 @@ export function collectPageDigest() {
       '.diff-blob',
       'pre',
       'code',
-    ], 4);
+    ], 10);
 
     return {
       file: file ? truncateText(file, 200) : '',
@@ -251,7 +296,7 @@ export function collectPageDigest() {
     };
   }
 
-  function findVisibleTextInAncestors(element, selectors, maxDepth = 4) {
+  function findVisibleTextInAncestors(element, selectors, maxDepth = 10) {
     let current = element;
     let depth = 0;
 
@@ -274,7 +319,7 @@ export function collectPageDigest() {
     return '';
   }
 
-  function findVisibleBlockTextInAncestors(element, selectors, maxDepth = 4) {
+  function findVisibleBlockTextInAncestors(element, selectors, maxDepth = 10) {
     let current = element;
     let depth = 0;
 
