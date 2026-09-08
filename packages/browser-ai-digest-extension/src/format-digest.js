@@ -48,7 +48,7 @@ function normalizeFeedbackItem(item) {
 
   const comment = truncateText(cleanText(item.comment ?? item.text ?? item.feedback), MAX_FEEDBACK_LENGTH);
   const file = truncateText(cleanText(item.file), 200);
-  const diff = truncateText(normalizeBlockText(item.diff), 900);
+  const diff = truncateText(normalizeDiffText(item.diff), 900);
 
   if (!comment && !file && !diff) {
     return null;
@@ -73,9 +73,11 @@ function renderFeedbackItem(item) {
 
     if (item.diff) {
       lines.push('  Diff:');
+      lines.push('  ```diff');
       for (const line of item.diff.split('\n')) {
-        lines.push(`    ${line}`);
+        lines.push(`  ${line}`);
       }
+      lines.push('  ```');
     }
 
     return lines;
@@ -91,11 +93,30 @@ function cleanText(value) {
     .trim();
 }
 
-function normalizeBlockText(value) {
-  return String(value ?? '')
+function normalizeDiffText(value) {
+  const lines = String(value ?? '')
     .replace(/\r\n?/g, '\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
+    .split('\n')
+    .map((line) => line.trimEnd());
+
+  const normalizedLines = [];
+
+  for (const line of lines) {
+    if (/^\s*\d+\s*$/.test(line)) {
+      continue;
+    }
+
+    const prefixMatch = line.match(/^(\s*)\d+(?:\s{2,}|\t+)(\S.*)$/);
+    const normalizedLine = prefixMatch ? `${prefixMatch[1]}${prefixMatch[2]}` : line;
+
+    if (normalizedLine === '' && normalizedLines.at(-1) === '') {
+      continue;
+    }
+
+    normalizedLines.push(normalizedLine);
+  }
+
+  return normalizedLines.join('\n').trim();
 }
 
 function truncateText(value, maxLength) {

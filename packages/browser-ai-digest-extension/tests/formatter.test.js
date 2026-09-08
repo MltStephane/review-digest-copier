@@ -33,9 +33,11 @@ test('formats a digest with structured sections', () => {
       '- Comment: Please split this into two changes.',
       '  File: packages/browser-ai-digest-extension/src/format-digest.js',
       '  Diff:',
-      '    @@ -1,2 +1,2 @@',
-      '    -old',
-      '    +new',
+      '  ```diff',
+      '  @@ -1,2 +1,2 @@',
+      '  -old',
+      '  +new',
+      '  ```',
       '- Looks good to me.',
     ].join('\n'),
   );
@@ -51,6 +53,25 @@ test('normalizes empty or noisy feedback', () => {
 
   assert.match(output, /- Needs attention/);
   assert.doesNotMatch(output, /-\s+$/m);
+});
+
+test('normalizes GitLab diff noise into a fenced diff block', () => {
+  const output = formatAiDigest({
+    source: 'GitLab MR',
+    url: 'https://gitlab.com/group/project/-/merge_requests/7',
+    title: 'Review draft',
+    feedbackItems: [
+      {
+        comment: 'Please keep the diff readable.',
+        file: 'src/example.js',
+        diff: '12\n@@ -10,3 +10,3 @@\n10  const oldValue = true;\n11  const nextValue = false;\n12\n\n13  return nextValue;',
+      },
+    ],
+  });
+
+  assert.match(output, /  ```diff\n  @@ -10,3 \+10,3 @@\n  const oldValue = true;\n  const nextValue = false;\n  \n  return nextValue;\n  ```/);
+  assert.doesNotMatch(output, /^\s*\d+\s*$/m);
+  assert.doesNotMatch(output, /^\s*\d+\s{2,}const/m);
 });
 
 test('falls back when no feedback is available', () => {
