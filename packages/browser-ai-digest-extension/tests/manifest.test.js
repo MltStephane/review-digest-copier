@@ -10,7 +10,7 @@ test('exposes the dynamically imported extension modules to GitLab MR pages', ()
   assert.deepEqual(manifest.web_accessible_resources, [
     {
       resources: ['src/page-digest.js', 'src/format-digest.js'],
-      matches: ['https://*/*/-/merge_requests/*', 'http://*/*/-/merge_requests/*'],
+      matches: ['https://*/*', 'http://*/*'],
     },
   ]);
 });
