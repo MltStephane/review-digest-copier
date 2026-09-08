@@ -1,13 +1,19 @@
-const MAX_FEEDBACK_ITEMS = 8;
 const MAX_FEEDBACK_LENGTH = 360;
 
 export function formatAiDigest({ source, url, title, feedback, feedbackItems } = {}) {
   const lines = [
-    'Review Digest',
+    'You are reviewing the feedback below.',
     '',
-    `Source: ${cleanText(source) || 'Unknown'}`,
-    `URL: ${cleanText(url) || 'Unknown'}`,
-    `Title: ${cleanText(title) || 'Untitled'}`,
+    'Context:',
+    `- Source: ${cleanText(source) || 'Unknown'}`,
+    `- URL: ${cleanText(url) || 'Unknown'}`,
+    `- Title: ${cleanText(title) || 'Untitled'}`,
+    '',
+    'Instructions:',
+    '- Treat the items one by one, without merging unrelated remarks.',
+    '- The available items may be incomplete, so treat them as extracted evidence, not a complete transcript.',
+    '- If two comments conflict, call it out explicitly and prefer the most specific or blocking one.',
+    '- Draft ready-to-post conventional review comment replies at the end.',
     '',
     'Feedback:',
   ];
@@ -30,8 +36,7 @@ function normalizeFeedbackItems(feedbackItems, feedback) {
 
   const cleaned = items
     .map((item) => normalizeFeedbackItem(item))
-    .filter(Boolean)
-    .slice(0, MAX_FEEDBACK_ITEMS);
+    .filter(Boolean);
 
   return cleaned.length > 0 ? cleaned : [{ comment: 'No visible feedback found.' }];
 }
