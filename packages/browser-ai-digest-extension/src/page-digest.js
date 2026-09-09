@@ -27,6 +27,182 @@ function hasGitLabMergeRequestSignals() {
   ].join(',')));
 }
 
+export const GITLAB_COMMENT_SELECTORS = [
+  '[data-testid="note-content"]',
+  '.note-body',
+  '.note-text',
+  '.discussion-note .note-text',
+  '.timeline-entry .note-text',
+  '.js-note-body',
+];
+
+export function collectGitLabCommentFeedbackItem(element) {
+  const comment = normalizeText(getRawVisibleTextWithoutInjectedControls(element));
+
+  if (!comment) {
+    return null;
+  }
+
+  const context = collectGitLabContextForElement(element);
+
+  return {
+    comment,
+    file: context.file,
+    diff: context.diff,
+  };
+}
+
+function collectGitLabContextForElement(element) {
+  const root = element?.closest?.(
+    'article, li, section, .note, .discussion-note, .timeline-entry, .discussion, .diff-discussion, .note-wrapper, .note-holder',
+  ) ?? element?.parentElement ?? element;
+
+  const file = findVisibleTextInAncestors(root, [
+    '[data-testid="file-name"]',
+    '[data-testid="file-path"]',
+    '[data-file-path]',
+    '[data-file-name]',
+    '.file-title-name',
+    '.file-title-name a',
+    '.file-header .file-title-name',
+    '.file-header-content .file-title-name',
+    '.diff-file-name',
+    '.file-header-title',
+    '.file-title',
+    '.file-path',
+    '.js-file-title-name',
+    'a[href*="/blob/"]',
+    'a[href*="/tree/"]',
+  ], 10);
+
+  const diff = findVisibleBlockTextInAncestors(root, [
+    '[data-testid="diff-content"]',
+    '.diff-content',
+    '.diff-lines',
+    '.file-content',
+    '.blob-viewer',
+    '.line_content',
+    '.diff-line-content',
+    '.code',
+    '.file-body',
+    '.file-holder',
+    '.diff-blob',
+    'pre',
+    'code',
+  ], 10);
+
+  return {
+    file: file ? truncateText(file, 200) : '',
+    diff: diff ? truncateBlockText(diff, 900) : '',
+  };
+}
+
+function normalizeText(value) {
+  return String(value ?? '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function truncateText(value, maxLength) {
+  if (value.length <= maxLength) {
+    return value;
+  }
+
+  return `${value.slice(0, Math.max(0, maxLength - 1)).trimEnd()}…`;
+}
+
+function truncateBlockText(value, maxLength) {
+  const normalized = String(value ?? '')
+    .replace(/\r\n?/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+
+  if (normalized.length <= maxLength) {
+    return normalized;
+  }
+
+  return `${normalized.slice(0, Math.max(0, maxLength - 1)).trimEnd()}…`;
+}
+
+function findVisibleTextInAncestors(element, selectors, maxDepth = 10) {
+  let current = element;
+  let depth = 0;
+
+  while (current && depth <= maxDepth) {
+    for (const selector of selectors) {
+      const match = typeof current.matches === 'function' && current.matches(selector)
+        ? current
+        : current.querySelector?.(selector);
+      const text = normalizeText(getRawVisibleTextWithoutInjectedControls(match));
+
+      if (text) {
+        return text;
+      }
+    }
+
+    current = current.parentElement;
+    depth += 1;
+  }
+
+  return '';
+}
+
+function findVisibleBlockTextInAncestors(element, selectors, maxDepth = 10) {
+  let current = element;
+  let depth = 0;
+
+  while (current && depth <= maxDepth) {
+    for (const selector of selectors) {
+      const match = typeof current.matches === 'function' && current.matches(selector)
+        ? current
+        : current.querySelector?.(selector);
+      const text = String(getRawVisibleTextWithoutInjectedControls(match) ?? '')
+        .replace(/\r\n?/g, '\n')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+
+      if (text) {
+        return text;
+      }
+    }
+
+    current = current.parentElement;
+    depth += 1;
+  }
+
+  return '';
+}
+
+function getRawVisibleTextWithoutInjectedControls(element) {
+  if (!element || !isVisibleElement(element)) {
+    return '';
+  }
+
+  if (typeof element.cloneNode === 'function') {
+    const clone = element.cloneNode(true);
+    for (const control of clone.querySelectorAll?.('[data-review-digest-copier-comment-button]') ?? []) {
+      control.remove();
+    }
+
+    return String(clone.innerText || clone.textContent || '').trim();
+  }
+
+  return String(element.innerText || element.textContent || '').trim();
+}
+
+function isVisibleElement(element) {
+  const style = typeof window !== 'undefined' && typeof window.getComputedStyle === 'function'
+    ? window.getComputedStyle(element)
+    : { display: 'block', visibility: 'visible', opacity: '1' };
+
+  return (
+    style.display !== 'none'
+    && style.visibility !== 'hidden'
+    && style.opacity !== '0'
+    && (typeof element.getClientRects !== 'function' || element.getClientRects().length > 0)
+  );
+}
+
 export function collectPageDigest() {
   // Self-contained provider detection: must not close over module scope
   // because `chrome.scripting.executeScript({ func: collectPageDigest })`
@@ -137,13 +313,15 @@ export function collectPageDigest() {
   }
 
   function isVisible(element) {
-    const style = window.getComputedStyle(element);
+    const style = typeof window !== 'undefined' && typeof window.getComputedStyle === 'function'
+      ? window.getComputedStyle(element)
+      : { display: 'block', visibility: 'visible', opacity: '1' };
 
     return (
       style.display !== 'none'
       && style.visibility !== 'hidden'
       && style.opacity !== '0'
-      && element.getClientRects().length > 0
+      && (typeof element.getClientRects !== 'function' || element.getClientRects().length > 0)
     );
   }
 
@@ -214,10 +392,6 @@ export function collectPageDigest() {
 
         seen.add(normalizedText);
         feedback.push(text);
-
-        if (feedback.length >= 8) {
-          return feedback;
-        }
       }
     }
 
@@ -262,10 +436,6 @@ export function collectPageDigest() {
           file: context.file,
           diff: context.diff,
         });
-
-        if (items.length >= 8) {
-          return items;
-        }
       }
     }
 
@@ -369,6 +539,15 @@ export function collectPageDigest() {
   function getRawVisibleText(element) {
     if (!element || !isVisible(element)) {
       return '';
+    }
+
+    if (typeof element.cloneNode === 'function') {
+      const clone = element.cloneNode(true);
+      for (const control of clone.querySelectorAll?.('[data-review-digest-copier-comment-button]') ?? []) {
+        control.remove();
+      }
+
+      return String(clone.innerText || clone.textContent || '').trim();
     }
 
     return String(element.innerText || element.textContent || '').trim();

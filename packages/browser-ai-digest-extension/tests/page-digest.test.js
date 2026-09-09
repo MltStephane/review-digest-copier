@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { collectPageDigest, isGitLabMergeRequestPage } from '../src/page-digest.js';
+import { collectGitLabCommentFeedbackItem, collectPageDigest, isGitLabMergeRequestPage } from '../src/page-digest.js';
 
 test('detects GitLab merge request pages on gitlab.com and self-hosted instances', () => {
   const restore = mockGlobals({
@@ -139,6 +139,84 @@ test('collectPageDigest works when serialized for chrome.scripting.executeScript
   assert.equal(digest.feedbackItems[0].diff.endsWith('…'), true);
   assert.match(digest.feedbackItems[0].file, /^packages\/browser-ai-digest-extension\/src\//);
   assert.match(digest.feedbackItems[0].diff, /^\+line 1 with injected digest context/);
+
+  restore();
+});
+
+test('collects a single GitLab comment without the injected copy button label', () => {
+  const noteBody = createMockElement({
+    text: 'Please keep this comment focused.\nCopy comment',
+    selectors: ['[data-testid="note-content"]'],
+  });
+
+  noteBody.cloneNode = () => {
+    const clone = {
+      innerText: 'Please keep this comment focused.\nCopy comment',
+      textContent: 'Please keep this comment focused.\nCopy comment',
+      querySelectorAll(selector) {
+        if (selector !== '[data-review-digest-copier-comment-button]') {
+          return [];
+        }
+
+        return [
+          {
+            remove() {
+              clone.innerText = 'Please keep this comment focused.';
+              clone.textContent = 'Please keep this comment focused.';
+            },
+          },
+        ];
+      },
+    };
+
+    return clone;
+  };
+
+  const restore = mockGlobals({
+    document: createMockDocument(),
+    location: { href: 'https://gitlab.com/group/project/-/merge_requests/9', hostname: 'gitlab.com' },
+  });
+
+  const item = collectGitLabCommentFeedbackItem(noteBody);
+
+  assert.deepEqual(item, {
+    comment: 'Please keep this comment focused.',
+    file: '',
+    diff: '',
+  });
+  assert.doesNotMatch(item.comment, /Copy comment/);
+
+  restore();
+});
+
+test('collects more than eight visible GitLab comments', () => {
+  const title = createMockElement({
+    text: 'No arbitrary digest limit',
+    selectors: ['[data-testid="merge-request-title"]'],
+  });
+  const notes = Array.from({ length: 9 }, (_, index) => createMockElement({
+    text: `Comment ${index + 1}`,
+    selectors: ['[data-testid="note-content"]'],
+  }));
+
+  const restore = mockGlobals({
+    document: {
+      title: 'No arbitrary digest limit · !10',
+      querySelector(selector) {
+        return [title].find((element) => element.matches(selector)) ?? null;
+      },
+      querySelectorAll(selector) {
+        return notes.filter((element) => element.matches(selector));
+      },
+    },
+    location: { href: 'https://gitlab.com/group/project/-/merge_requests/10', hostname: 'gitlab.com' },
+  });
+
+  const digest = collectPageDigest();
+
+  assert.equal(digest.rawFeedback.length, 9);
+  assert.equal(digest.feedbackItems.length, 9);
+  assert.equal(digest.rawFeedback.at(-1), 'Comment 9');
 
   restore();
 });

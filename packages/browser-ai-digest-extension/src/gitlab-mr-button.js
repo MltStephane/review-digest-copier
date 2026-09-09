@@ -9,13 +9,14 @@ if (!state.ready) {
 }
 
 async function initialize() {
-  const [{ collectPageDigest, isGitLabMergeRequestPage }, { formatAiDigest }] = await Promise.all([
+  const [{ collectGitLabCommentFeedbackItem, collectPageDigest, GITLAB_COMMENT_SELECTORS, isGitLabMergeRequestPage }, { formatAiDigest }] = await Promise.all([
     import(chrome.runtime.getURL('src/page-digest.js')),
     import(chrome.runtime.getURL('src/format-digest.js')),
   ]);
 
   const buttonId = 'review-digest-copier-gitlab-mr-button';
   const statusId = 'review-digest-copier-gitlab-mr-status';
+  const commentButtonClass = 'review-digest-copier-gitlab-comment-button';
 
   syncButton();
 
@@ -36,6 +37,7 @@ async function initialize() {
 
     if (!shouldShow) {
       existingButton?.remove();
+      removeCommentButtons();
       removeStatus();
       return;
     }
@@ -46,6 +48,8 @@ async function initialize() {
     if (!button.isConnected) {
       mountPoint.appendChild(button);
     }
+
+    syncCommentButtons();
   }
 
   function createButton() {
@@ -89,6 +93,99 @@ async function initialize() {
       setStatus(error instanceof Error ? error.message : 'Copy failed.');
     } finally {
       button.disabled = false;
+    }
+  }
+
+  function syncCommentButtons() {
+    const seenRoots = new Set();
+
+    for (const selector of GITLAB_COMMENT_SELECTORS) {
+      for (const element of document.querySelectorAll(selector)) {
+        const root = getCommentRoot(element);
+
+        if (
+          !root
+          || seenRoots.has(root)
+          || root.querySelector(`.${commentButtonClass}`)
+          || element.nextElementSibling?.classList?.contains(commentButtonClass)
+        ) {
+          continue;
+        }
+
+        seenRoots.add(root);
+        const button = createCommentButton(element);
+        element.insertAdjacentElement('afterend', button);
+      }
+    }
+  }
+
+  function createCommentButton(commentElement) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = commentButtonClass;
+    button.textContent = 'Copy comment';
+    button.setAttribute('data-review-digest-copier-comment-button', 'true');
+    button.style.cssText = [
+      'display: inline-flex',
+      'align-items: center',
+      'margin: 6px 0 0',
+      'padding: 4px 8px',
+      'border: 1px solid rgba(31, 41, 55, 0.16)',
+      'border-radius: 9999px',
+      'background: #fff',
+      'color: #111827',
+      'font: 600 11px/1.2 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+      'box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08)',
+      'cursor: pointer',
+    ].join('; ');
+
+    button.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      void copyComment(commentElement, button);
+    });
+
+    return button;
+  }
+
+  async function copyComment(commentElement, button) {
+    button.disabled = true;
+    setStatus('Collecting comment…');
+
+    try {
+      const pageData = await collectPageDigest();
+      const feedbackItem = collectGitLabCommentFeedbackItem(commentElement);
+
+      if (!feedbackItem) {
+        throw new Error('No comment text found to copy.');
+      }
+
+      const digest = formatAiDigest({
+        ...pageData,
+        source: `Single comment · ${pageData.source ?? 'GitLab MR'}`,
+        feedback: [feedbackItem.comment],
+        feedbackItems: [feedbackItem],
+        rawFeedback: [feedbackItem.comment],
+      });
+
+      await navigator.clipboard.writeText(digest);
+      setStatus('Copied comment to clipboard.');
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'Comment copy failed.');
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  function getCommentRoot(element) {
+    return element.closest(
+      'article, li, section, .note, .discussion-note, .timeline-entry, .discussion, .diff-discussion, .note-wrapper, .note-holder',
+    ) ?? element.parentElement ?? element;
+  }
+
+  function removeCommentButtons() {
+    for (const button of document.querySelectorAll(`.${commentButtonClass}`)) {
+      button.remove();
     }
   }
 
